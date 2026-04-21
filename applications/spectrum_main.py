@@ -7,12 +7,11 @@ from utils.SpectrumMatrixBuilder import SpectrumMatrixBuilder
 import time
 
 # --- CONFIGURATION PARAMETERS ---
-GRID_SIZE = 40
-N_SPOTS = 40
-SIZE_MIN = 30
-SIZE_MAX = 50
-SEED = 42
-
+GRID_SIZE = 15
+N_SPOTS = 50
+SIZE_MIN = 3
+SIZE_MAX = 20
+SEED = 46
 
 # --------------------------------
 
@@ -94,6 +93,7 @@ def main():
     builder_cov = SpectrumMatrixBuilder(solver_cov.header)
     headers_cov, _ = builder_cov.build_from_numpy(raw_matrix, Node, ColumnNode)
     solver_cov.feasible_count = len(headers_cov)
+    solver_cov.row_sizes = {i: int(raw_matrix[i].sum()) for i in range(N_SPOTS)}
 
     print(f"Solving Max Coverage for {N_SPOTS} spots on {GRID_SIZE}x{GRID_SIZE} grid...")
     start = time.time()
@@ -103,7 +103,7 @@ def main():
     if solver_cov.best_solution:
         res_cov = solution_to_matrix(solver_cov.best_solution, raw_matrix)
         visualize_matrix(res_cov, [spots[i] for i in solver_cov.best_solution], GRID_SIZE,
-                         f"Max Coverage Result in {end - start:.4f}s")
+                         f"Max Coverage Result. Constraints Satisfied: {solver_cov.best_coverage}, Subsets Used: {solver_cov.best_density}")
     else:
         print("No coverage solution found.")
 
@@ -113,6 +113,7 @@ def main():
     builder_den = SpectrumMatrixBuilder(solver_den.header)
     headers_den, min_r = builder_den.build_from_numpy(raw_matrix, Node, ColumnNode)
     solver_den.feasible_count = len(headers_den)
+    solver_den.row_sizes = {i: int(raw_matrix[i].sum()) for i in range(N_SPOTS)}
     solver_den.min_row_length = min_r if min_r > 0 else 1
 
     print(f"Solving Max Density for {N_SPOTS} spots...")
@@ -123,7 +124,7 @@ def main():
     if solver_den.best_solution:
         res_den = solution_to_matrix(solver_den.best_solution, raw_matrix)
         visualize_matrix(res_den, [spots[i] for i in solver_den.best_solution], GRID_SIZE,
-                         f"Max Density Result in {end_den - start_den:.4f}s")
+                         f"Max Density Result. Constraints Satisfied: {solver_den.best_coverage}, Subsets Used: {solver_den.best_density}")
     else:
         print("No density solution found.")
 

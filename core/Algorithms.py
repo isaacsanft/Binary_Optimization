@@ -12,6 +12,7 @@ class Algorithm:
         self.current_density = 0
         self.best_density = -1
         self.min_row_length = 0
+        self.row_sizes = {}
 
     def cover(self, column):
         if column.size > 0:
@@ -62,8 +63,6 @@ class Algorithm:
         if self.header.right == self.header:
             return True
         column = self.choose_column()
-        if column is None:
-            return False
         self.cover(column)
         col_pointer = column.down
         while col_pointer != column:
@@ -72,28 +71,27 @@ class Algorithm:
             while row_pointer != col_pointer:
                 self.cover(row_pointer.column)
                 row_pointer = row_pointer.right
-
             if self.search_x():
                 return True
-
             self.current_solution.pop()
             row_reverse_pointer = col_pointer.left
             while row_reverse_pointer != col_pointer:
                 self.uncover(row_reverse_pointer.column)
                 row_reverse_pointer = row_reverse_pointer.left
-
-            col_pointer = col_pointer.down
-
         self.uncover(column)
         return False
 
-    def length_row(self, row_start):
-        count = 1
-        curr = row_start.right
-        while curr != row_start:
-            count += 1
+
+    def count_remaining_rows(self):
+        seen = set()
+        curr = self.header.right
+        while curr != self.header:
+            node = curr.down
+            while node != curr:
+                seen.add(node.row_id)
+                node = node.down
             curr = curr.right
-        return count
+        return len(seen)
 
     def search_uf_cover(self):
         if self.feasible_count + self.current_coverage <= self.best_coverage:
@@ -102,19 +100,26 @@ class Algorithm:
             if self.current_coverage > self.best_coverage:
                 self.best_coverage = self.current_coverage
                 self.best_solution = self.current_solution.copy()
+                self.best_density = self.current_density
             return
         column = self.choose_column()
         if column is None:
             if self.current_coverage > self.best_coverage:
                 self.best_coverage = self.current_coverage
                 self.best_solution = self.current_solution.copy()
+                self.best_density = self.current_density
             return
 
         self.cover(column)
+
+        self.search_uf_cover()
+
         col_pointer = column.down
         while col_pointer != column:
+            row_size = self.row_sizes.get(col_pointer.row_id, 1)
             self.current_solution.append(col_pointer.row_id)
-            self.current_coverage += self.length_row(col_pointer)
+            self.current_coverage += row_size
+            self.current_density += 1
             row_pointer = col_pointer.right
             while row_pointer != col_pointer:
                 self.cover(row_pointer.column)
@@ -123,37 +128,44 @@ class Algorithm:
             self.search_uf_cover()
 
             self.current_solution.pop()
-            self.current_coverage -= self.length_row(col_pointer)
+            self.current_coverage -= row_size
+            self.current_density -= 1
             row_reverse_pointer = col_pointer.left
             while row_reverse_pointer != col_pointer:
                 self.uncover(row_reverse_pointer.column)
                 row_reverse_pointer = row_reverse_pointer.left
-
             col_pointer = col_pointer.down
 
         self.uncover(column)
-        return
 
     def search_uf_density(self):
-        if (self.feasible_count // self.min_row_length) + self.current_density <= self.best_density:
+        remaining = self.count_remaining_rows()
+        if remaining + self.current_density <= self.best_density:
             return
         if self.header.right == self.header:
             if self.current_density > self.best_density:
                 self.best_density = self.current_density
                 self.best_solution = self.current_solution.copy()
+                self.best_coverage = self.current_coverage
             return
         column = self.choose_column()
         if column is None:
             if self.current_density > self.best_density:
                 self.best_density = self.current_density
                 self.best_solution = self.current_solution.copy()
+                self.best_coverage = self.current_coverage
             return
 
         self.cover(column)
+
+        self.search_uf_density()
+
         col_pointer = column.down
         while col_pointer != column:
+            row_size = self.row_sizes.get(col_pointer.row_id, 1)
             self.current_solution.append(col_pointer.row_id)
             self.current_density += 1
+            self.current_coverage += row_size
             row_pointer = col_pointer.right
             while row_pointer != col_pointer:
                 self.cover(row_pointer.column)
@@ -163,12 +175,11 @@ class Algorithm:
 
             self.current_solution.pop()
             self.current_density -= 1
+            self.current_coverage -= row_size
             row_reverse_pointer = col_pointer.left
             while row_reverse_pointer != col_pointer:
                 self.uncover(row_reverse_pointer.column)
                 row_reverse_pointer = row_reverse_pointer.left
-
             col_pointer = col_pointer.down
 
         self.uncover(column)
-        return
